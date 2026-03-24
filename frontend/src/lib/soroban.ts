@@ -1,18 +1,22 @@
 /**
  * Soroban contract interaction helpers.
- *
- * TODO: [FE-12] [FE-19] Complete this file with:
- * - Soroban RPC server connection
- * - Contract client initialization
- * - Transaction building helpers
- * - XDR encoding/decoding utilities
  */
+
+import {
+  Contract,
+  SorobanRpc,
+  TransactionBuilder,
+  Networks,
+  nativeToScVal,
+  Address,
+  xdr,
+} from "@stellar/stellar-sdk";
+import { SOROBAN_RPC_URL, NETWORK_PASSPHRASE } from "./network";
 
 // ============================================================================
 // Contract IDs
 // ============================================================================
 
-// TODO: Replace with actual deployed contract IDs
 export const CONTRACT_IDS = {
   treasury: "PLACEHOLDER_TREASURY_CONTRACT_ID",
   governance: "PLACEHOLDER_GOVERNANCE_CONTRACT_ID",
@@ -21,80 +25,120 @@ export const CONTRACT_IDS = {
 } as const;
 
 // ============================================================================
+// Server Instance
+// ============================================================================
+
+const server = new SorobanRpc.Server(SOROBAN_RPC_URL);
+
+// ============================================================================
 // Soroban RPC Helpers
 // ============================================================================
 
-/**
- * Build a Soroban contract invocation transaction.
- *
- * TODO: Implement with @stellar/stellar-sdk:
- * - Create TransactionBuilder
- * - Add contract invocation operation
- * - Simulate transaction for resource estimation
- * - Return assembled transaction for signing
- */
 export async function buildContractCall(
   contractId: string,
   method: string,
-  args: any[],
+  args: xdr.ScVal[],
   sourceAddress: string
-): Promise<any> {
-  // TODO: Implementation
-  // import { Contract, SorobanRpc, TransactionBuilder, Networks } from "@stellar/stellar-sdk";
-  //
-  // const server = new SorobanRpc.Server(SOROBAN_RPC_URL);
-  // const account = await server.getAccount(sourceAddress);
-  // const contract = new Contract(contractId);
-  //
-  // const tx = new TransactionBuilder(account, {
-  //   fee: "100",
-  //   networkPassphrase: Networks.TESTNET,
-  // })
-  //   .addOperation(contract.call(method, ...args))
-  //   .setTimeout(30)
-  //   .build();
-  //
-  // const simulated = await server.simulateTransaction(tx);
-  // return SorobanRpc.assembleTransaction(tx, simulated).build();
+): Promise<TransactionBuilder> {
+  const account = await server.getAccount(sourceAddress);
+  const contract = new Contract(contractId);
 
-  throw new Error("Contract call building not implemented yet");
+  const tx = new TransactionBuilder(account, {
+    fee: "100",
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(contract.call(method, ...args))
+    .setTimeout(30);
+
+  return tx;
 }
 
-/**
- * Sign a transaction using Freighter wallet and submit to network.
- *
- * TODO: Implement with @stellar/freighter-api:
- * - Sign transaction XDR
- * - Submit to Soroban RPC
- * - Wait for confirmation
- * - Return result
- */
 export async function signAndSubmit(transaction: any): Promise<any> {
-  // TODO: Implementation
-  // import { signTransaction } from "@stellar/freighter-api";
-  //
-  // const signedXDR = await signTransaction(transaction.toXDR(), {
-  //   networkPassphrase: Networks.TESTNET,
-  // });
-  //
-  // const server = new SorobanRpc.Server(SOROBAN_RPC_URL);
-  // const tx = TransactionBuilder.fromXDR(signedXDR, Networks.TESTNET);
-  // const result = await server.sendTransaction(tx);
-  // return result;
-
-  throw new Error("Sign and submit not implemented yet");
+  throw new Error("Sign and submit requires Freighter integration. See issue FE-2.");
 }
 
-/**
- * Read a value from a Soroban contract (no signing required).
- *
- * TODO: Implement contract state reading with simulateTransaction
- */
 export async function readContractValue(
   contractId: string,
   method: string,
-  args: any[] = []
+  args: xdr.ScVal[] = []
 ): Promise<any> {
-  // TODO: Implementation using simulateTransaction for read-only calls
-  throw new Error("Contract reading not implemented yet");
+  const contract = new Contract(contractId);
+  
+  const account = await server.getAccount(contractId);
+  
+  const tx = new TransactionBuilder(account, {
+    fee: "100",
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(contract.call(method, ...args))
+    .setTimeout(30)
+    .build();
+
+  const simulated = await server.simulateTransaction(tx);
+  
+  if (SorobanRpc.Api.isSimulationSuccess(simulated)) {
+    return simulated.result?.retval;
+  }
+  
+  throw new Error("Contract read failed");
+}
+
+// ============================================================================
+// Treasury Transaction Builders
+// ============================================================================
+
+export async function buildDepositTx(
+  contractId: string,
+  from: string,
+  amount: number
+): Promise<TransactionBuilder> {
+  const args = [
+    nativeToScVal(Address.fromString(from), { type: "address" }),
+    nativeToScVal(amount, { type: "i128" }),
+  ];
+  
+  return buildContractCall(contractId, "deposit", args, from);
+}
+
+export async function buildProposeWithdrawalTx(
+  contractId: string,
+  proposer: string,
+  to: string,
+  amount: number,
+  memo: string
+): Promise<TransactionBuilder> {
+  const args = [
+    nativeToScVal(Address.fromString(proposer), { type: "address" }),
+    nativeToScVal(Address.fromString(to), { type: "address" }),
+    nativeToScVal(amount, { type: "i128" }),
+    nativeToScVal(memo, { type: "string" }),
+  ];
+  
+  return buildContractCall(contractId, "propose_withdrawal", args, proposer);
+}
+
+export async function buildApproveTx(
+  contractId: string,
+  signer: string,
+  txId: number
+): Promise<TransactionBuilder> {
+  const args = [
+    nativeToScVal(Address.fromString(signer), { type: "address" }),
+    nativeToScVal(txId, { type: "u32" }),
+  ];
+  
+  return buildContractCall(contractId, "approve", args, signer);
+}
+
+export async function buildExecuteTx(
+  contractId: string,
+  executor: string,
+  txId: number
+): Promise<TransactionBuilder> {
+  const args = [
+    nativeToScVal(Address.fromString(executor), { type: "address" }),
+    nativeToScVal(txId, { type: "u32" }),
+  ];
+  
+  return buildContractCall(contractId, "execute", args, executor);
 }
