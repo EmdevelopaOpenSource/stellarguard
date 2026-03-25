@@ -95,12 +95,12 @@ This document tracks all smart contract development tasks for the StellarGuard m
 **Labels:** `smart-contract`, `logic`
 **Description:** Implement the `propose_withdrawal` function.
 - **Tasks:**
-  - [ ] Implement `propose_withdrawal(env, proposer, to, amount, memo)`.
-  - [ ] Verify proposer is an authorized signer via `require_signer` helper.
-  - [ ] Check sufficient balance exists.
-  - [ ] Auto-include proposer as first approval.
-  - [ ] Store `Transaction` struct in `Persistent` storage.
-  - [ ] Emit `(treasury, propose)` event.
+  - [x] Implement `propose_withdrawal(env, proposer, to, amount, memo)`. (@sshdopey - 2026-03-25 16:16 UTC)
+  - [x] Verify proposer is an authorized signer via `require_signer` helper. (@sshdopey - 2026-03-25 16:16 UTC)
+  - [x] Check sufficient balance exists. (@sshdopey - 2026-03-25 16:16 UTC)
+  - [x] Auto-include proposer as first approval. (@sshdopey - 2026-03-25 16:16 UTC)
+  - [x] Store `Transaction` struct in `Persistent` storage. (@sshdopey - 2026-03-25 16:16 UTC)
+  - [x] Emit `(treasury, propose)` event. (@sshdopey - 2026-03-25 16:16 UTC)
 
 ### Issue #SC-9: Multi-Sig Approval Logic
 **Priority:** Critical
